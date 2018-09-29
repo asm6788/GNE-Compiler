@@ -125,31 +125,55 @@ namespace GNE_Compiler
                 List<Operator> parse =  Operator.Parse(source.Remove(0, source.IndexOf("이것이다") + 5));
                 string Converted = VariableTable.Keys.OfType<String>().FirstOrDefault(s => (string)VariableTable[s] == source.Split(' ')[0]);
                 generated += Converted + " = ";
-                foreach (Operator parsed in parse)
+                ParsedToCsharp(parse);
+                generated += Environment.NewLine;
+            }
+
+           void ParsedToCsharp(List<Operator> input)
+            {
+                Operator current = input.First();
+                int index = 0;
+                int masterindex = 0;
+                bool Infunction = false;
+                for(int i = 0; true; i++)
                 {
-                    switch (parsed.type)
+                    switch (current.type)
                     {
-                        case Operator.Type.String:
-                            generated += "\"" + parsed.Contents + "\"";
-                            break;
                         case Operator.Type.Variable:
-                            generated += VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == parsed.Contents.Trim());
+                            generated += VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == current.Contents.Trim());
                             break;
                         case Operator.Type.Function:
-                            Function function = Compiler.Function.ParseFunction(parsed.Contents,FunctionTable,VariableTable);
-                            generated += function.name + "(";
-                            foreach (Parameter parameter in function.parameters)
+                            if (!Infunction)
                             {
-                                generated += parameter.name;
+                                generated += FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == current.Contents.Trim()) + "(";
+                                Infunction = true;
                             }
-                            generated += ")";
                             break;
                         default:
-                            generated += parsed.Contents;
+                            generated += current.Contents;
                             break;
                     }
-                }
-                generated += Environment.NewLine;
+                    if (index == current.slave.Count-1 && current.slave.Count != 0)
+                    {
+                        current = current.slave.ElementAt(index);
+                        index++;
+                    }
+                    else
+                    {
+                        if(Infunction)
+                        {
+                            generated +=  ")";
+                            Infunction = false;
+                        }
+                        index = 0;
+                        masterindex++;
+                        if (masterindex == input.Count)
+                        {
+                            break;
+                        }
+                        current = input.ElementAt(masterindex);
+                    }
+                }       
             }
             public void Terminate()
             {
@@ -179,20 +203,13 @@ namespace GNE_Compiler
 
         class Operator
         {
-            public class SlaveFunction
+            public class Slave : Operator
             {
-                public readonly Type type = Type.Function;
-                public readonly string Contents;
-                public List<SlaveFunction> slave = new List<SlaveFunction>();
-
-                public SlaveFunction(string contents)
-                {
-                    Contents = contents;
-                }
+                public Slave(Type type, string contents) : base(type, contents) { }
             }
             public readonly Type type;
             public readonly string Contents;
-            public List<SlaveFunction> slave = new List<SlaveFunction>(); //제일 먼저보이는 함수
+            public List<Slave> slave = new List<Slave>(); //제일 먼저보이는 함수
 
             public Operator(Type type, string contents)
             {
@@ -206,7 +223,8 @@ namespace GNE_Compiler
                 bool Instring = false;
                 int depth = 0;
                 bool startrec = true;
-                int Funtionstart = Findfunction(source,0);
+                int Funtionstart = FindfunctionStart(source,0);
+                int FunctionEnd = FindfunctionEnd(source, 0);
                 string temp = "";
                 List<Operator> operators = new List<Operator>();
                 for (int i = 0; i != source.Length; i++)
@@ -219,11 +237,34 @@ namespace GNE_Compiler
                         }
                         else
                         {
-                            AddParseList(ref startrec, ref temp, depth,ref operators,Type.Function,source.Remove(0,i+1));
+                            AddParseList(ref temp, depth,ref operators,null,Type.Function);
                         }
                         temp = "";
                         depth++;
-                        Funtionstart = Findfunction(source,Funtionstart);
+                        Funtionstart = FindfunctionStart(source,Funtionstart);
+                        continue;
+                    }
+                    if (i == FunctionEnd)
+                    {
+                        if (depth == 0)
+                        {
+                            operators.Add(new Operator(Type.Function, temp));
+                        }
+                        else
+                        {
+                            if(temp == " " || temp == "")
+                            {
+                                continue;
+                            }
+                            if (temp[0] ==',')
+                            {
+                                temp = temp.Remove(0,1);
+                            }
+                            AddParseList(ref temp, depth, ref operators, ParserParamater(temp), Type.Paramater);
+                        }
+                        temp = "";
+                        depth--;
+                        FunctionEnd = FindfunctionEnd(source, FunctionEnd);
                         continue;
                     }
                     if (source[i] == '"')
@@ -242,37 +283,32 @@ namespace GNE_Compiler
                     {
                         if (temp.Trim() == "*")
                         {
-                            AddParseList(ref startrec, ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth,ref operators);
                             operators.Add(new Operator(Type.Multiplication, "*"));
                             continue;
                         }
                         else if (temp.Trim() == ";'")
                         {
-                            AddParseList(ref startrec, ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth,ref operators);
                             continue;
                         }
                         else if (temp.Trim() == "/")
                         {
-                            AddParseList(ref startrec, ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth,ref operators);
                             operators.Add(new Operator(Type.Division, "/"));
                             continue;
                         }
                         else if (temp.Trim() == "+")
                         {
-                            AddParseList(ref startrec, ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth,ref operators);
                             operators.Add(new Operator(Type.Add, "+"));
-                            continue;
-                        }
-                        else if (temp.Trim().Last() == ')')
-                        {
-                            AddParseList(ref startrec, ref temp, depth,ref operators);
                             continue;
                         }
                     }
                     if (i == source.Length - 1) //문자열의끝
                     {
-                        AddParseList(ref startrec, ref temp, depth,ref operators);
                         startrec = !startrec;
+                        AddParseList(ref temp, depth, ref operators, ParserParamater(temp), Type.Paramater);
                         continue;
                     }
                     if (startrec)
@@ -284,7 +320,7 @@ namespace GNE_Compiler
                 return operators;
             }
 
-            static int Findfunction(string source,int ignore)
+            static int FindfunctionStart(string source,int ignore)
             {
                 bool Instring = false;
                 for (int i = 0; i != source.Length; i++)
@@ -305,11 +341,40 @@ namespace GNE_Compiler
                 }
                 return -1;
             }
-            private static void AddParseList(ref bool startrec, ref string temp,int depth ,ref List<Operator> operators,Type type = Type.None,string parameter = null)
+
+            static int FindfunctionEnd(string source, int ignore)
+            {
+                bool Instring = false;
+                for (int i = 0; i != source.Length; i++)
+                {
+                    if (source[i] == '"')
+                    {
+                        Instring = !Instring;
+                        continue;
+                    }
+                    if (!Instring && source[i] == ')') //문자열 안도아니고 함수의 시작점인 함수()에서 )를 감지
+                    {
+                        if (i > ignore)
+                        {
+                            if (source[i + 1] != ')')
+                            {
+                                return i;
+                            }
+                        }
+                    }
+
+                }
+                return -1;
+            }
+
+          
+
+            private static void AddParseList(ref string temp,int depth ,ref List<Operator> operators,List<Slave> Paramater = null, Type type = Type.None)
             {
                 double number = 0;
-                startrec = false;
-                List<SlaveFunction> slaves = operators.Last().slave;
+                string[] unparsed = null;
+                List<Slave> slaves = operators.Last().slave;
+
                 if (temp != "")
                 {
                     if (type == Type.Function)
@@ -318,21 +383,96 @@ namespace GNE_Compiler
                         {
                             slaves = slaves.Last().slave;
                         }
-                        slaves.Add(new SlaveFunction(temp));
+                        slaves.Add(new Slave(type,temp));
                     }
-                    temp = temp.Trim();
-                    if (double.TryParse(temp, out number))
+                    else if(type == Type.Paramater)
                     {
-                        operators.Add(new Operator(Type.Number, temp));
+                        if (depth != 0)
+                        {
+                            for (int i = 0; i != depth - 1; i++)
+                            {
+                                slaves = slaves.Last().slave;
+                            }
+                            slaves.AddRange(Paramater);
+                        }
+                        else
+                        {
+                            operators.AddRange(Paramater);
+                        }
                     }
-                    else if (!temp.Contains("("))
-                    {
-                        operators.Add(new Operator(Type.Variable, temp));
-                    }
-                    temp = "";
                 }
+                temp = "";
             }
 
+            public static List<Slave> ParserParamater(string paramaters)
+            {
+                List<Slave> generators = new List<Slave>();
+                string temp = "";
+                int index = 0;
+                bool Instring = false;
+                bool startrec = true;
+                for (int i = 0; i != paramaters.Length; i++)
+                {
+                    double number = 0;
+                    if (paramaters[i] == '"')
+                    {
+                        temp += paramaters[i];
+                        if (Instring)
+                        {
+                            // 문자열 끝 "~"
+                            generators.Add(new Slave(Type.String, temp));
+                            temp = "";
+                        }
+                        Instring = !Instring;
+                        continue;
+                    }
+                    if (i == paramaters.Length - 1) //문자열의끝
+                    {
+                        startrec = !startrec;
+                        temp += paramaters[i];
+                        generators.Add(new Slave(Type.Variable, temp));
+                        continue;
+                    }
+                    if (startrec)
+                    {
+                        temp += paramaters[i];
+                    }
+                    if (!Instring && !temp.Trim().Equals(""))
+                    {
+                        if (temp.Trim().Last() == '*')
+                        {
+                            generators.Add(new Slave(Type.Multiplication, "*"));
+                            temp = "";
+                            continue;
+                        }
+                        else if (double.TryParse(temp, out number))
+                        {
+                            generators.Add(new Slave(Type.Number, temp));
+                            temp = "";
+                            continue;
+                        }
+                        else if (temp.Trim().Last() == '/')
+                        {
+                            generators.Add(new Slave(Type.Division, "/"));
+                            temp = "";
+                            continue;
+                        }
+                        else if (temp.Trim().Last() == '+')
+                        {
+                            generators.Add(new Slave(Type.Add, "+"));
+                            temp = "";
+                            continue;
+                        }
+                        else if (temp.Trim().Last() == ',')
+                        {
+                            generators.Add(new Slave(Type.Variable, temp.Remove(temp.Length-1,1)));
+                            temp = "";
+                            continue;
+                        }
+                    }
+                }
+                return generators;
+            }
             public enum Type
             {
                 None,
@@ -345,7 +485,8 @@ namespace GNE_Compiler
                 String,
                 Number,
                 Variable,
-                Function
+                Function,
+                Paramater
             }
         }
 
@@ -380,34 +521,29 @@ namespace GNE_Compiler
                 this.parameters = parameters;
             }
 
-            public static Function ParseFunction(string source, Hashtable FunctionTable, Hashtable VariableTable)
+            public static Function ParseFunction(string source, Operator op, Hashtable FunctionTable, Hashtable VariableTable)
             {
-                string functionname = source.Remove(source.IndexOf("("));
+                string functionname = source;
                 functionname = FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == functionname);
-                List<Function> parsed = new List<Function>();
                 //source = source.Remove(0, source.IndexOf("(") + 1);
                 //source = source.Remove(source.IndexOf(")"));
                 List<Parameter> parameters = new List<Parameter>();
-
-                foreach (Operator op in Operator.Parse(source))
+                switch (op.type)
                 {
-                    switch (op.type)
-                    {
-                        case Operator.Type.String:
-                            parameters.Add(new Parameter("", "\"" + op.Contents + "\""));
-                            break;
-                        case Operator.Type.Variable:
-                            parameters.Add(new Parameter("", VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == op.Contents.Trim())));
-                            break;
-                        case Operator.Type.Function:
-                            string name = op.Contents.Remove(op.Contents.IndexOf("("));
-                            name = FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == name);
-                            //foreach (Parameter func in ParseFunction(source, FunctionTable, VariableTable).parameters)
-                            //{
-                            //    parameters.Add(func);
-                            //}
-                            break;
-                    }
+                    case Operator.Type.String:
+                        parameters.Add(new Parameter("", "\"" + op.Contents + "\""));
+                        break;
+                    case Operator.Type.Variable:
+                        parameters.Add(new Parameter("", VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == op.Contents.Trim())));
+                        break;
+                    case Operator.Type.Function:
+                        string name = op.Contents;
+                        name = FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == name);
+                        //foreach (Parameter func in ParseFunction(source, FunctionTable, VariableTable).parameters)
+                        //{
+                        //    parameters.Add(func);
+                        //}
+                        break;
                 }
                 return new Function(functionname, parameters);
             }
