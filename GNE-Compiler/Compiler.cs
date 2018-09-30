@@ -211,7 +211,9 @@ namespace GNE_Compiler
             {
                 source = source.Remove(0, 6);
                 source = source.Remove(source.Length - 2, 2);
-                generated += "Console.WriteLine(" + source + ");" + Environment.NewLine;
+                generated += "Console.WriteLine(";
+                ParsedToCsharp(Operator.Parse(source));
+                generated += ");" + Environment.NewLine;
             }
         }
 
@@ -324,6 +326,7 @@ namespace GNE_Compiler
                     if (i == source.Length - 1) //문자열의끝
                     {
                         startrec = !startrec;
+                        temp += source[i];
                         AddParseList(ref temp, depth, ref operators, ParserParamater(temp), Type.Paramater);
                         continue;
                     }
@@ -384,7 +387,11 @@ namespace GNE_Compiler
             {
                 double number = 0;
                 string[] unparsed = null;
-                List<Slave> slaves = operators.Last().slave;
+                List<Slave> slaves = new List<Slave>();
+                if (operators.Count != 0 && depth != 0)
+                {
+                    slaves = operators.Last().slave; 
+                }
 
                 if (temp != "")
                 {
