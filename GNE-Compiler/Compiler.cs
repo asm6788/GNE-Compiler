@@ -3,22 +3,21 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GNE_Compiler
 {
-    class Compiler
+    internal class Compiler
     {
         public int bracket;
-        string generated = "";
+        private string generated = "";
+
         public void Compile()
         {
-            
             File.WriteAllText("output.cs", generated);
         }
 
-        Random random = new Random();
+        private Random random = new Random();
+
         public string RandomString()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -28,9 +27,10 @@ namespace GNE_Compiler
 
         public class Parser : Compiler
         {
-            List<Variable> variables = new List<Variable>();
-            Hashtable FunctionTable = new Hashtable();
-            Hashtable VariableTable = new Hashtable();
+            private List<Variable> variables = new List<Variable>();
+            private Hashtable FunctionTable = new Hashtable();
+            private Hashtable VariableTable = new Hashtable();
+
             public new void Function(string source)
             {
                 List<Variable> variables = new List<Variable>();
@@ -48,15 +48,19 @@ namespace GNE_Compiler
                         case "공평":
                             type = "void";
                             break;
+
                         case "적절한숫자":
                             type = "int";
                             break;
+
                         case "적절한소수":
                             type = "double";
                             break;
+
                         case "한국어":
                             type = "string";
                             break;
+
                         default:
                             Console.WriteLine("파서 오류: 돌릴수 없는 그걸..이것을..");
                             break;
@@ -93,6 +97,7 @@ namespace GNE_Compiler
                     }
                 }
             }
+
             public new void Variable(string source)
             {
                 string[] parse = source.Split(' ');
@@ -108,40 +113,43 @@ namespace GNE_Compiler
                     variables.Add(new Variable("var", hash, parse[1]));
                     generated += "var " + hash + " = " + parse[4] + Environment.NewLine;
                 }
-
             }
+
             public void Exception_Try()
             {
                 bracket++;
                 generated += "try {" + Environment.NewLine;
             }
+
             public void Exception_Catch()
             {
                 bracket++;
                 generated += "catch(Exception e) {" + Environment.NewLine;
             }
+
             public void Assignment(string source)
             {
-                List<Operator> parse =  Operator.Parse(source.Remove(0, source.IndexOf("이것이다") + 5));
+                List<Operator> parse = Operator.Parse(source.Remove(0, source.IndexOf("이것이다") + 5));
                 string Converted = VariableTable.Keys.OfType<String>().FirstOrDefault(s => (string)VariableTable[s] == source.Split(' ')[0]);
                 generated += Converted + " = ";
                 ParsedToCsharp(parse);
                 generated += Environment.NewLine;
             }
 
-           void ParsedToCsharp(List<Operator> input)
+            private void ParsedToCsharp(List<Operator> input)
             {
                 Operator current = input.First();
                 int index = 0;
                 int masterindex = 0;
                 bool Infunction = false;
-                for(int i = 0; true; i++)
+                for (int i = 0; true; i++)
                 {
                     switch (current.type)
                     {
                         case Operator.Type.Variable:
                             generated += VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == current.Contents.Trim());
                             break;
+
                         case Operator.Type.Function:
                             if (!Infunction)
                             {
@@ -149,20 +157,21 @@ namespace GNE_Compiler
                                 Infunction = true;
                             }
                             break;
+
                         default:
                             generated += current.Contents;
                             break;
                     }
-                    if (index == current.slave.Count-1 && current.slave.Count != 0)
+                    if (index == current.slave.Count - 1 && current.slave.Count != 0)
                     {
                         current = current.slave.ElementAt(index);
                         index++;
                     }
                     else
                     {
-                        if(Infunction)
+                        if (Infunction)
                         {
-                            generated +=  ")";
+                            generated += ")";
                             Infunction = false;
                         }
                         index = 0;
@@ -173,40 +182,48 @@ namespace GNE_Compiler
                         }
                         current = input.ElementAt(masterindex);
                     }
-                }       
+                }
             }
+
             public void Terminate()
             {
                 generated += "Environment.Exit(0);" + Environment.NewLine;
             }
+
             public void OpenBracket()
             {
                 bracket++;
                 generated += "{" + Environment.NewLine;
             }
+
             public void CloseBracket()
             {
                 bracket--;
                 generated += "}" + Environment.NewLine;
             }
+
             public void Req_GC()
             {
                 generated += "GC.Collect();" + Environment.NewLine;
             }
+
             public void Console_Log(string source)
             {
                 source = source.Remove(0, 6);
                 source = source.Remove(source.Length - 2, 2);
-                generated += "Console.WriteLine("+source+");"+ Environment.NewLine;
+                generated += "Console.WriteLine(" + source + ");" + Environment.NewLine;
             }
         }
 
-        class Operator
+        private class Operator
         {
             public class Slave : Operator
             {
-                public Slave(Type type, string contents) : base(type, contents) { }
+                public Slave(Type type, string contents) : base(type, contents)
+                {
+                }
             }
+
             public readonly Type type;
             public readonly string Contents;
             public List<Slave> slave = new List<Slave>(); //제일 먼저보이는 함수
@@ -217,19 +234,18 @@ namespace GNE_Compiler
                 Contents = contents;
             }
 
-
             static public List<Operator> Parse(string source)
             {
                 bool Instring = false;
                 int depth = 0;
                 bool startrec = true;
-                int Funtionstart = FindfunctionStart(source,0);
+                int Funtionstart = FindfunctionStart(source, 0);
                 int FunctionEnd = FindfunctionEnd(source, 0);
                 string temp = "";
                 List<Operator> operators = new List<Operator>();
                 for (int i = 0; i != source.Length; i++)
                 {
-                    if(i == Funtionstart)
+                    if (i == Funtionstart)
                     {
                         if (depth == 0)
                         {
@@ -237,11 +253,11 @@ namespace GNE_Compiler
                         }
                         else
                         {
-                            AddParseList(ref temp, depth,ref operators,null,Type.Function);
+                            AddParseList(ref temp, depth, ref operators, null, Type.Function);
                         }
                         temp = "";
                         depth++;
-                        Funtionstart = FindfunctionStart(source,Funtionstart);
+                        Funtionstart = FindfunctionStart(source, Funtionstart);
                         continue;
                     }
                     if (i == FunctionEnd)
@@ -252,13 +268,13 @@ namespace GNE_Compiler
                         }
                         else
                         {
-                            if(temp == " " || temp == "")
+                            if (temp == " " || temp == "")
                             {
                                 continue;
                             }
-                            if (temp[0] ==',')
+                            if (temp[0] == ',')
                             {
-                                temp = temp.Remove(0,1);
+                                temp = temp.Remove(0, 1);
                             }
                             AddParseList(ref temp, depth, ref operators, ParserParamater(temp), Type.Paramater);
                         }
@@ -283,24 +299,24 @@ namespace GNE_Compiler
                     {
                         if (temp.Trim() == "*")
                         {
-                            AddParseList(ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth, ref operators);
                             operators.Add(new Operator(Type.Multiplication, "*"));
                             continue;
                         }
                         else if (temp.Trim() == ";'")
                         {
-                            AddParseList(ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth, ref operators);
                             continue;
                         }
                         else if (temp.Trim() == "/")
                         {
-                            AddParseList(ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth, ref operators);
                             operators.Add(new Operator(Type.Division, "/"));
                             continue;
                         }
                         else if (temp.Trim() == "+")
                         {
-                            AddParseList(ref temp, depth,ref operators);
+                            AddParseList(ref temp, depth, ref operators);
                             operators.Add(new Operator(Type.Add, "+"));
                             continue;
                         }
@@ -315,12 +331,11 @@ namespace GNE_Compiler
                     {
                         temp += source[i];
                     }
-
                 }
                 return operators;
             }
 
-            static int FindfunctionStart(string source,int ignore)
+            private static int FindfunctionStart(string source, int ignore)
             {
                 bool Instring = false;
                 for (int i = 0; i != source.Length; i++)
@@ -332,17 +347,16 @@ namespace GNE_Compiler
                     }
                     if (!Instring && source[i] == '(') //문자열 안도아니고 함수의 시작점인 함수()에서 (를 감지
                     {
-                        if(i > ignore)
+                        if (i > ignore)
                         {
                             return i;
                         }
                     }
-
                 }
                 return -1;
             }
 
-            static int FindfunctionEnd(string source, int ignore)
+            private static int FindfunctionEnd(string source, int ignore)
             {
                 bool Instring = false;
                 for (int i = 0; i != source.Length; i++)
@@ -362,14 +376,11 @@ namespace GNE_Compiler
                             }
                         }
                     }
-
                 }
                 return -1;
             }
 
-          
-
-            private static void AddParseList(ref string temp,int depth ,ref List<Operator> operators,List<Slave> Paramater = null, Type type = Type.None)
+            private static void AddParseList(ref string temp, int depth, ref List<Operator> operators, List<Slave> Paramater = null, Type type = Type.None)
             {
                 double number = 0;
                 string[] unparsed = null;
@@ -383,9 +394,9 @@ namespace GNE_Compiler
                         {
                             slaves = slaves.Last().slave;
                         }
-                        slaves.Add(new Slave(type,temp));
+                        slaves.Add(new Slave(type, temp));
                     }
-                    else if(type == Type.Paramater)
+                    else if (type == Type.Paramater)
                     {
                         if (depth != 0)
                         {
@@ -465,7 +476,7 @@ namespace GNE_Compiler
                         }
                         else if (temp.Trim().Last() == ',')
                         {
-                            generators.Add(new Slave(Type.Variable, temp.Remove(temp.Length-1,1)));
+                            generators.Add(new Slave(Type.Variable, temp.Remove(temp.Length - 1, 1)));
                             temp = "";
                             continue;
                         }
@@ -473,6 +484,7 @@ namespace GNE_Compiler
                 }
                 return generators;
             }
+
             public enum Type
             {
                 None,
@@ -490,7 +502,7 @@ namespace GNE_Compiler
             }
         }
 
-        class Variable
+        private class Variable
         {
             public string type;
             public string name;
@@ -510,11 +522,13 @@ namespace GNE_Compiler
                 this.value = value;
             }
         }
-        class Function
+
+        private class Function
         {
             public string name;
             public List<Parameter> parameters;
-            static List<Function> generated = new List<Function>();
+            private static List<Function> generated = new List<Function>();
+
             public Function(string name, List<Parameter> parameters)
             {
                 this.name = name;
@@ -533,9 +547,11 @@ namespace GNE_Compiler
                     case Operator.Type.String:
                         parameters.Add(new Parameter("", "\"" + op.Contents + "\""));
                         break;
+
                     case Operator.Type.Variable:
                         parameters.Add(new Parameter("", VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == op.Contents.Trim())));
                         break;
+
                     case Operator.Type.Function:
                         string name = op.Contents;
                         name = FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == name);
@@ -548,9 +564,9 @@ namespace GNE_Compiler
                 return new Function(functionname, parameters);
             }
         }
-        class Parameter : Variable
-        {
 
+        private class Parameter : Variable
+        {
             public Parameter(string type, string name) : base(type, name)
             {
                 this.type = type;
@@ -576,15 +592,19 @@ namespace GNE_Compiler
                             case "공평":
                                 type = "void";
                                 break;
+
                             case "적절한숫자":
                                 type = "int";
                                 break;
+
                             case "적절한소수":
                                 type = "double";
                                 break;
+
                             case "한국어":
                                 type = "string";
                                 break;
+
                             default:
                                 Console.WriteLine("파서 오류: 돌릴수 없는 그걸..이것을..");
                                 break;
@@ -595,7 +615,6 @@ namespace GNE_Compiler
                     return parameters;
                 }
             }
-
         }
     }
 }
