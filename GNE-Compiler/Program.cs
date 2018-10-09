@@ -11,6 +11,8 @@ namespace GNE_Compiler
     {
         static void Main(string[] args)
         {
+            if (args.Length < 1) return;
+
             Compiler.Parser parser = new Compiler.Parser();
             if(GetFileEncoding(args[0]) != Encoding.GetEncoding(949))
             {
