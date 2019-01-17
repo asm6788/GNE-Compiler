@@ -97,7 +97,9 @@ namespace GNE_Compiler
                 }
             }
             parser.Compile();
-            Console.Read();
+
+            Console.WriteLine("계속 하려면 아무 키나 누르십시오. . . ");
+            Console.ReadKey();
         }
 
         public static Encoding GetFileEncoding(string path)
