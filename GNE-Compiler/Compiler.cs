@@ -101,17 +101,17 @@ namespace GNE_Compiler
             public new void Variable(string source)
             {
                 string[] parse = source.Split(' ');
-                string hash = RandomString();
-                VariableTable.Add(hash, parse[1]);
+                string name = parse[1].Replace('-', '_');
+                VariableTable.Add(name, parse[1]);
                 if (parse[4] == "창조")
                 {
-                    variables.Add(new Variable("var", hash, parse[5].Remove(parse[5].Length - 1, 1).Trim()));
-                    generated += "var " + hash + " = new " + parse[5].Remove(parse[5].Length - 1, 1) + ";" + Environment.NewLine;
+                    variables.Add(new Variable("var", name, parse[5].Remove(parse[5].Length - 1, 1).Trim()));
+                    generated += "var " + name + " = new " + parse[5].Remove(parse[5].Length - 1, 1) + ";" + Environment.NewLine;
                 }
                 else
                 {
-                    variables.Add(new Variable("var", hash, parse[1]));
-                    generated += "var " + hash + " = " + parse[4] + Environment.NewLine;
+                    variables.Add(new Variable("var", name, parse[1]));
+                    generated += "var " + name + " = " + parse[4] + Environment.NewLine;
                 }
             }
 
