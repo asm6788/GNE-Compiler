@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Microsoft.CSharp;
+using System;
+using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -9,11 +11,40 @@ namespace GNE_Compiler
     internal class Compiler
     {
         public int bracket;
-        private string generated = "";
+        private List<string> generated = new List<string>();
 
         public void Compile()
         {
-            File.WriteAllText("output.cs", generated);
+            Console.WriteLine("C#->EXE 컴파일중");
+            string[] usings = { "using System;", "using System.Runtime.CompilerServices;", "using Microsoft.CSharp.RuntimeBinder;" };
+            string TEMPLATE_A = string.Join("\r\n", usings)+"namespace CSharp_Script_Namespace { class Program { \r\n";
+            string TEMPLATE_B = "}}";
+            string[] REFERENCES = { "System.Dynamic.Runtime.dll","Microsoft.CSharp.dll", "System.Core.dll" };
+
+            File.WriteAllLines("output.cs", generated);
+            CompilerResults result = Compile(TEMPLATE_A + string.Join("\r\n", generated.ToArray()) + TEMPLATE_B, AppDomain.CurrentDomain.BaseDirectory + "output.exe", REFERENCES);
+            if (result.Errors.Count > 0)
+            {
+                foreach (CompilerError CompErr in result.Errors)
+                {
+                    Console.WriteLine("C# Line number " + (CompErr.Line-2) +
+                        ", Error Number: " + CompErr.ErrorNumber +
+                        ", '" + CompErr.ErrorText);
+                    Console.WriteLine("그네어 Line number " + (CompErr.Line - 1));
+                }
+            }
+            Console.WriteLine("C#->EXE 컴파일완료");
+        }
+
+        private static CompilerResults Compile(string source, string outputFile, params string[] references)
+        {
+            CompilerParameters parameters = new CompilerParameters(references, outputFile);
+            parameters.GenerateExecutable = true;
+
+            using (CSharpCodeProvider provider = new CSharpCodeProvider())
+            {
+                return provider.CompileAssemblyFromSource(parameters, source);
+            }
         }
 
         private Random random = new Random();
@@ -28,11 +59,14 @@ namespace GNE_Compiler
         public class Parser : Compiler
         {
             private List<Variable> variables = new List<Variable>();
+            private List<Function> List_Function = new List<Function>();
+            private Function current_func = null;
             private Hashtable FunctionTable = new Hashtable();
             private Hashtable VariableTable = new Hashtable();
 
-            public new void Function(string source)
+            public new void Function(string source, int location)
             {
+                string hash = RandomString();
                 List<Variable> variables = new List<Variable>();
                 source = source.Trim();
                 if (source.StartsWith("전부 이렇게 해 가지고"))
@@ -67,99 +101,121 @@ namespace GNE_Compiler
                     }
                     if (name == "K-투자")
                     {
-                        generated += "static void Main(string[] args";
+                        generated.Add("static void Main(string[] args");
                     }
                     else
                     {
-                        string hash = RandomString();
-                        FunctionTable.Add(hash, name);
-                        generated += "public static " + type + " " + hash + "(";
+                        FunctionTable.Add(name, hash);
+                        generated.Add("public static " + type + " " + hash + "(");
                     }
                     bracket++;
                     List<Parameter> parameters = Parameter.ParseRawFunction(source);
+                    if (parameters != null)
+                    {
+                        foreach (Parameter parameter in parameters)
+                        {
+                            VariableTable.Add(parameter.name, hash);
+                        }
+                    }
                     if (parameters != null)
                     {
                         for (int i = 0; i < parameters.Count; i++)
                         {
                             if (i == parameters.Count - 1)
                             {
-                                generated += parameters[i].type + " " + parameters[i].name + ") {" + Environment.NewLine;
+                                Append_Gen(parameters[i].type + " " + VariableTable[parameters[i].name] + ") {");
                             }
                             else
                             {
-                                generated += parameters[i].type + " " + parameters[i].name + ", ";
+                                Append_Gen(parameters[i].type + " " + VariableTable[parameters[i].name] + ", ");
                             }
                         }
                     }
                     else
                     {
-                        generated += ") {" + Environment.NewLine;
+                        Append_Gen(") {");
                     }
+                    List_Function.Add(new Function(hash, generated.Count -1, parameters));
+                    current_func = List_Function[List_Function.Count - 1];
                 }
+            }
+
+            public void Fucntion_Return(string source)
+            {
+                generated.Add("return " + VariableTable[source.Remove(0, 5)] + ";");
             }
 
             public new void Variable(string source)
             {
                 string[] parse = source.Split(' ');
                 string name = parse[1].Replace('-', '_');
-                VariableTable.Add(name, parse[1]);
-                if (parse[4] == "창조")
+                int index = current_func.location;
+                parse[4] = parse[4].Remove(parse[4].Length - 1, 1);
+                if (VariableTable[parse[1]] == null)
                 {
+                    VariableTable.Add(parse[1], name);
+                }
+                if (parse[4] == "창조")
+                { 
+                    generated.Insert(index, "static dynamic " + name + " = null;");
+                    source = source.Remove(0, source.IndexOf("이것이다") + 7);
                     variables.Add(new Variable("var", name, parse[5].Remove(parse[5].Length - 1, 1).Trim()));
-                    generated += "var " + name + " = new " + parse[5].Remove(parse[5].Length - 1, 1) + ";" + Environment.NewLine;
+                    generated.Add(name + " = new " + ParsedToCsharp(Operator.Parse(source)) + ";");
                 }
                 else
                 {
+                    generated.Insert(index, "static dynamic " + name + " = null;");
+                    source = source.Remove(0, source.IndexOf("이것이다") + 5);
                     variables.Add(new Variable("var", name, parse[1]));
-                    generated += "var " + name + " = " + parse[4] + Environment.NewLine;
+                    generated.Add(name + " = " + ParsedToCsharp(Operator.Parse(source)) + ";");
                 }
             }
-
             public void Exception_Try()
             {
                 bracket++;
-                generated += "try {" + Environment.NewLine;
+                generated.Add("try {");
             }
 
             public void Exception_Catch()
             {
                 bracket++;
-                generated += "catch(Exception e) {" + Environment.NewLine;
+                generated.Add("catch(Exception e) {");
             }
 
             public void Assignment(string source)
             {
                 List<Operator> parse = Operator.Parse(source.Remove(0, source.IndexOf("이것이다") + 5));
-                string Converted = VariableTable.Keys.OfType<String>().FirstOrDefault(s => (string)VariableTable[s] == source.Split(' ')[0]);
-                generated += Converted + " = ";
-                ParsedToCsharp(parse);
-                generated += Environment.NewLine;
+                string Converted = (string)VariableTable[source.Split(' ')[0]];
+                generated.Add(Converted + " = ");
+                Append_Gen(ParsedToCsharp(parse));
+                Append_Gen(";");
             }
 
-            private void ParsedToCsharp(List<Operator> input)
+            private string ParsedToCsharp(List<Operator> input)
             {
                 Operator current = input.First();
                 int index = 0;
                 int masterindex = 0;
+                string temp_generate = "";
                 bool Infunction = false;
                 for (int i = 0; true; i++)
                 {
                     switch (current.type)
                     {
                         case Operator.Type.Variable:
-                            generated += VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == current.Contents.Trim());
+                            temp_generate += VariableTable[current.Contents.Trim()];
                             break;
 
                         case Operator.Type.Function:
                             if (!Infunction)
                             {
-                                generated += FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == current.Contents.Trim()) + "(";
+                                temp_generate += FunctionTable[current.Contents.Trim()] + "(";
                                 Infunction = true;
                             }
                             break;
 
                         default:
-                            generated += current.Contents;
+                            temp_generate += current.Contents;
                             break;
                     }
                     if (index == current.slave.Count - 1 && current.slave.Count != 0)
@@ -171,7 +227,7 @@ namespace GNE_Compiler
                     {
                         if (Infunction)
                         {
-                            generated += ")";
+                            temp_generate += ")";
                             Infunction = false;
                         }
                         index = 0;
@@ -183,38 +239,46 @@ namespace GNE_Compiler
                         current = input.ElementAt(masterindex);
                     }
                 }
+                return temp_generate;
             }
 
             public void Terminate()
             {
-                generated += "Environment.Exit(0);" + Environment.NewLine;
+                generated.Add("Environment.Exit(0);");
             }
 
             public void OpenBracket()
             {
                 bracket++;
-                generated += "{" + Environment.NewLine;
+                Append_Gen("{");
             }
 
             public void CloseBracket()
             {
                 bracket--;
-                generated += "}" + Environment.NewLine;
+                generated.Add("}");
             }
 
             public void Req_GC()
             {
-                generated += "GC.Collect();" + Environment.NewLine;
+                generated.Add("GC.Collect();");
             }
 
             public void Console_Log(string source)
             {
                 source = source.Remove(0, 6);
                 source = source.Remove(source.Length - 2, 2);
-                generated += "Console.WriteLine(";
-                ParsedToCsharp(Operator.Parse(source));
-                generated += ");" + Environment.NewLine;
+                generated.Add("Console.WriteLine(");
+                Append_Gen(ParsedToCsharp(Operator.Parse(source)));
+                Append_Gen(");");
             }
+
+            public void Append_Gen(string input)
+            {
+                int index = generated.Count - 1;
+                generated[index] = generated[index] + input;
+            }
+
         }
 
         private class Operator
@@ -236,7 +300,7 @@ namespace GNE_Compiler
                 Contents = contents;
             }
 
-            static public List<Operator> Parse(string source)
+            public static List<Operator> Parse(string source)
             {
                 bool Instring = false;
                 int depth = 0;
@@ -385,12 +449,10 @@ namespace GNE_Compiler
 
             private static void AddParseList(ref string temp, int depth, ref List<Operator> operators, List<Slave> Paramater = null, Type type = Type.None)
             {
-                double number = 0;
-                string[] unparsed = null;
                 List<Slave> slaves = new List<Slave>();
                 if (operators.Count != 0 && depth != 0)
                 {
-                    slaves = operators.Last().slave; 
+                    slaves = operators.Last().slave;
                 }
 
                 if (temp != "")
@@ -426,7 +488,6 @@ namespace GNE_Compiler
             {
                 List<Slave> generators = new List<Slave>();
                 string temp = "";
-                int index = 0;
                 bool Instring = false;
                 bool startrec = true;
                 for (int i = 0; i != paramaters.Length; i++)
@@ -459,6 +520,7 @@ namespace GNE_Compiler
                     {
                         if (temp.Trim().Last() == '*')
                         {
+                            generators.Add(new Slave(Type.Variable, temp.Trim().Remove(temp.Length - 1, 1).Trim()));
                             generators.Add(new Slave(Type.Multiplication, "*"));
                             temp = "";
                             continue;
@@ -535,40 +597,13 @@ namespace GNE_Compiler
             public string name;
             public List<Parameter> parameters;
             private static List<Function> generated = new List<Function>();
+            public int location;
 
-            public Function(string name, List<Parameter> parameters)
+            public Function(string name, int location, List<Parameter> parameters)
             {
                 this.name = name;
                 this.parameters = parameters;
-            }
-
-            public static Function ParseFunction(string source, Operator op, Hashtable FunctionTable, Hashtable VariableTable)
-            {
-                string functionname = source;
-                functionname = FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == functionname);
-                //source = source.Remove(0, source.IndexOf("(") + 1);
-                //source = source.Remove(source.IndexOf(")"));
-                List<Parameter> parameters = new List<Parameter>();
-                switch (op.type)
-                {
-                    case Operator.Type.String:
-                        parameters.Add(new Parameter("", "\"" + op.Contents + "\""));
-                        break;
-
-                    case Operator.Type.Variable:
-                        parameters.Add(new Parameter("", VariableTable.Keys.OfType<String>().FirstOrDefault(s => (String)VariableTable[s] == op.Contents.Trim())));
-                        break;
-
-                    case Operator.Type.Function:
-                        string name = op.Contents;
-                        name = FunctionTable.Keys.OfType<String>().FirstOrDefault(s => (String)FunctionTable[s] == name);
-                        //foreach (Parameter func in ParseFunction(source, FunctionTable, VariableTable).parameters)
-                        //{
-                        //    parameters.Add(func);
-                        //}
-                        break;
-                }
-                return new Function(functionname, parameters);
+                this.location = location;
             }
         }
 

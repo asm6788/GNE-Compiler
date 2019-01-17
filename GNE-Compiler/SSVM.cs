@@ -1,15 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Management;
 
 namespace GNE_Compiler
 {
-    class SSVM
+    internal class SSVM
     {
-        SSVM()
+        private SSVM()
         {
             if (Math.Ceiling(new Microsoft.VisualBasic.Devices.ComputerInfo().TotalPhysicalMemory / (Double)1073741824) < 486)
             {

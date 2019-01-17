@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+
 namespace GNE_Compiler
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             if (args.Length < 1)
             {
@@ -23,13 +21,11 @@ namespace GNE_Compiler
                 return;
             }
 
+            Compiler.Parser parser = new Compiler.Parser();
             if (GetFileEncoding(args[0]) != Encoding.GetEncoding(949))
             {
                 Console.WriteLine("EUC-KR만을 지원합니다. 유니코드는 한국의 기술이 아니며 국가경쟁력을 강화하지 못하니까요.");
             }
-
-            Compiler.Parser parser = new Compiler.Parser();
-
 
             var source = File.ReadAllLines(args[0], Encoding.GetEncoding(949));
             for (int i = 0; i < source.Length; i++)
@@ -45,7 +41,7 @@ namespace GNE_Compiler
                 }
                 else if (source[i].StartsWith("전부 이렇게 해 가지고"))
                 {
-                    parser.Function(source[i]);
+                    parser.Function(source[i], i);
                 }
                 else if (source[i].StartsWith("/ㄹ") || source[i].StartsWith("/근"))
                 {
@@ -91,9 +87,13 @@ namespace GNE_Compiler
                 {
                     parser.Console_Log(source[i]);
                 }
+                else if (source[i].StartsWith("누설한다"))
+                {
+                    parser.Fucntion_Return(source[i]);
+                }
                 else
                 {
-                    Console.WriteLine("알수없는 토큰: "+ source[i]);
+                    Console.WriteLine("알수없는 토큰: " + source[i]);
                 }
             }
             parser.Compile();
@@ -105,7 +105,9 @@ namespace GNE_Compiler
         public static Encoding GetFileEncoding(string path)
         {
             if (path == null)
+            {
                 throw new ArgumentNullException("path");
+            }
 
             var encodings = Encoding.GetEncodings()
                 .Select(e => e.GetEncoding())
