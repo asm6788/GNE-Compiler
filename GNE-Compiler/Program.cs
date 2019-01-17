@@ -11,13 +11,25 @@ namespace GNE_Compiler
     {
         static void Main(string[] args)
         {
-            if (args.Length < 1) return;
+            if (args.Length < 1)
+            {
+                Console.WriteLine("입력이 없습니다.");
+                return;
+            }
 
-            Compiler.Parser parser = new Compiler.Parser();
-            if(GetFileEncoding(args[0]) != Encoding.GetEncoding(949))
+            if (!File.Exists(args[0]))
+            {
+                Console.WriteLine("입력한 파일이 존재하지 않습니다.");
+                return;
+            }
+
+            if (GetFileEncoding(args[0]) != Encoding.GetEncoding(949))
             {
                 Console.WriteLine("EUC-KR만을 지원합니다. 유니코드는 한국의 기술이 아니며 국가경쟁력을 강화하지 못하니까요.");
             }
+
+            Compiler.Parser parser = new Compiler.Parser();
+
 
             var source = File.ReadAllLines(args[0], Encoding.GetEncoding(949));
             for (int i = 0; i < source.Length; i++)
