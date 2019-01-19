@@ -108,6 +108,7 @@ namespace GNE_Compiler
                     {
                         foreach (Parameter parameter in parameters)
                         {
+                            hash = RandomString();
                             VariableTable.Add(parameter.name, hash);
                         }
                     }
@@ -276,32 +277,59 @@ namespace GNE_Compiler
             private string ParsedToCsharp(List<Operator> input)
             {
                 Operator current = input.First();
+                Operator parent = input.First();
+                Stack parents = new Stack();
+                parents.Push(current);
                 int index = 0;
                 int masterindex = 0;
                 string temp_generate = "";
                 bool Infunction = false;
                 for (int i = 0; true; i++)
                 {
-                    switch (current.type)
+                    if (!current.Compiled)
                     {
-                        case Operator.Type.Variable:
-                            temp_generate += VariableTable[current.Contents.Trim()];
-                            break;
+                        if(Infunction&&temp_generate.Last() != '(' && temp_generate.Last() != ',')
+                        {
+                            temp_generate += ",";
+                        }
+                        switch (current.type)
+                        {
+                            case Operator.Type.Variable:
+                                temp_generate += VariableTable[current.Contents.Trim()];
+                                break;
 
-                        case Operator.Type.Function:
-                            if (!Infunction)
-                            {
-                                temp_generate += FunctionTable[current.Contents.Trim()] + "(";
-                                Infunction = true;
-                            }
-                            break;
-
-                        default:
-                            temp_generate += current.Contents;
-                            break;
+                            case Operator.Type.Function:
+                                if (!Infunction)
+                                {
+                                    temp_generate += FunctionTable[current.Contents.Trim()] + "(";
+                                    Infunction = true;
+                                }
+                                break;
+                            case Operator.Type.True:
+                                temp_generate += "true";
+                                break;
+                            case Operator.Type.False:
+                                temp_generate += "false";
+                                break;
+                            default:
+                                temp_generate += current.Contents;
+                                break;
+                        }
                     }
-                    if (index == current.slave.Count - 1 && current.slave.Count != 0)
+                    current.Compiled = true;
+                    if (Get_Remain(current) == -1)
                     {
+                        current = parents.Pop() as Operator;
+                    }
+                    else
+                    {
+                        current = parent.slave.ElementAt(Get_Remain(current));
+                        continue;
+                    }
+                    if (index != current.slave.Count)
+                    {
+                        parents.Push(current);
+                        parent = current;
                         current = current.slave.ElementAt(index);
                         index++;
                     }
@@ -319,9 +347,23 @@ namespace GNE_Compiler
                             break;
                         }
                         current = input.ElementAt(masterindex);
+                        parents.Push(current);
                     }
                 }
                 return temp_generate;
+            }
+
+            int Get_Remain(Operator Parents)
+            {
+                List<Operator.Slave> slaves = Parents.slave;
+                for(int i =0; i < slaves.Count; i++)
+                {
+                    if(!slaves[i].Compiled)
+                    {
+                        return i;
+                    }
+                }
+                return -1;
             }
 
             public void Terminate()
@@ -374,6 +416,7 @@ namespace GNE_Compiler
 
             public readonly Type type;
             public readonly string Contents;
+            public bool Compiled = false;
             public List<Slave> slave = new List<Slave>(); //제일 먼저보이는 함수
 
             public Operator(Type type, string contents)
@@ -591,7 +634,20 @@ namespace GNE_Compiler
                     {
                         startrec = !startrec;
                         temp += paramaters[i];
-                        generators.Add(new Slave(Type.Variable, temp));
+                        if (temp == "친박")
+                        {
+                            generators.Add(new Slave(Type.True, temp));
+                            continue;
+                        }
+                        else if (temp == "비박")
+                        {
+                            generators.Add(new Slave(Type.False, temp));
+                            continue;
+                        }
+                        else
+                        {
+                            generators.Add(new Slave(Type.Variable, temp));
+                        }
                         continue;
                     }
                     if (startrec)
@@ -600,6 +656,17 @@ namespace GNE_Compiler
                     }
                     if (!Instring && !temp.Trim().Equals(""))
                     {
+                        if (temp == "친박")
+                        {
+                            generators.Add(new Slave(Type.True, temp));
+                            continue;
+                        }
+                        else if (temp == "비박")
+                        {
+                            generators.Add(new Slave(Type.False, temp));
+                            continue;
+                        }
+
                         if (temp.Trim().Last() == '*')
                         {
                             generators.Add(new Slave(Type.Variable, temp.Trim().Remove(temp.Length - 1, 1).Trim()));
@@ -636,6 +703,7 @@ namespace GNE_Compiler
                 return generators;
             }
 
+
             public enum Type
             {
                 None,
@@ -649,6 +717,8 @@ namespace GNE_Compiler
                 Number,
                 Variable,
                 Function,
+                True,
+                False,
                 Paramater
             }
         }
@@ -723,6 +793,10 @@ namespace GNE_Compiler
 
                             case "적절한소수":
                                 type = "double";
+                                break;
+
+                            case "계파":
+                                type = "bool";
                                 break;
 
                             case "한국어":
