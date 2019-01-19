@@ -15,13 +15,13 @@ namespace GNE_Compiler
  
         public void Compile()
         {
-            Console.WriteLine("C#->EXE 컴파일중");
-            string[] usings = { "using System;", "using System.Runtime.CompilerServices;", "using Microsoft.CSharp.RuntimeBinder;" };
-            string TEMPLATE_A = string.Join("\r\n", usings)+"namespace CSharp_Script_Namespace { class Program { \r\n";
+            Console.WriteLine("개,돼지->사회 컴파일중");
+            string[] usings = { "using System;", "using System.Runtime.CompilerServices;", "using Microsoft.CSharp.RuntimeBinder;","using System.Diagnostics;" };
+            string TEMPLATE_A = string.Join("\r\n", usings)+"\r\nnamespace CSharp_Script_Namespace {\r\n class Program { \r\n";
             string TEMPLATE_B = "}}";
             string[] REFERENCES = { "System.Dynamic.Runtime.dll","Microsoft.CSharp.dll", "System.Core.dll" };
 
-            File.WriteAllLines("output.cs", generated);
+            File.WriteAllText("output.cs", TEMPLATE_A + string.Join("\r\n", generated.ToArray()) + TEMPLATE_B);
             CompilerResults result = Compile(TEMPLATE_A + string.Join("\r\n", generated.ToArray()) + TEMPLATE_B, AppDomain.CurrentDomain.BaseDirectory + "output.exe", REFERENCES);
             if (result.Errors.Count > 0)
             {
@@ -33,7 +33,7 @@ namespace GNE_Compiler
                     Console.WriteLine("그네어 Line number " + (CompErr.Line - 1));
                 }
             }
-            Console.WriteLine("C#->EXE 컴파일완료");
+            Console.WriteLine("개,돼지->사회 컴파일완료");
         }
 
         private static CompilerResults Compile(string source, string outputFile, params string[] references)
@@ -177,6 +177,10 @@ namespace GNE_Compiler
                     {
                         Assignment(source[i]);
                     }
+                    else if (source[i] == "메르스();")
+                    {
+                        BreackPoint();
+                    }
                     else if (source[i] == "고심 끝에 프로세스 해체;")
                     {
                         Terminate();
@@ -221,6 +225,12 @@ namespace GNE_Compiler
                         Un_used.Add(source[i]);
                     }
                 }
+            }
+
+            private void BreackPoint()
+            {
+                generated.Add("if(System.Diagnostics.Debugger.IsAttached)");
+                generated.Add("Debugger.Break();");
             }
 
             public void Fucntion_Return(string source)

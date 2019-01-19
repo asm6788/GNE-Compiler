@@ -12,13 +12,13 @@ namespace GNE_Compiler
         {
             if (args.Length < 1)
             {
-                Console.WriteLine("입력이 없습니다.");
+                Console.WriteLine("입력된 개,돼지가 없습니다.");
                 return;
             }
 
             if (!File.Exists(args[0]))
             {
-                Console.WriteLine("입력한 파일이 존재하지 않습니다.");
+                Console.WriteLine("입력한 개,돼지가 존재하지 않습니다.");
                 return;
             }
 
