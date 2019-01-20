@@ -135,7 +135,6 @@ namespace GNE_Compiler
                 }
             }
 
-            bool Added_main = false;
             public void Process_Raw_Code(string[] source)
             {
                 for (int i = 0; i < source.Length; i++)
@@ -205,24 +204,13 @@ namespace GNE_Compiler
                     {
                         Fucntion_Return(source[i]);
                     }
+                    else if(source[i].StartsWith("사회"))
+                    {
+                        generated.Add("private static void Main(string[] args){");
+                    }
                     else
                     {
                         Console.WriteLine("알수없는 토큰: " + source[i]);
-                    }
-
-                    if(i == source.Length-1)
-                    {
-                        CloseBracket();
-                    }
-                    if (bracket == 0)
-                    {
-                        if (!Added_main)
-                        {
-                            generated.Add("private static void Main(string[] args){");
-                            bracket++;
-                            Added_main = true;
-                        }
-                        Un_used.Add(source[i]);
                     }
                 }
             }
