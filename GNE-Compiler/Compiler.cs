@@ -12,14 +12,14 @@ namespace GNE_Compiler
     {
         public int bracket;
         private List<string> generated = new List<string>();
- 
+
         public void Compile()
         {
             Console.WriteLine("개,돼지->사회 컴파일중");
-            string[] usings = { "using System;", "using System.Runtime.CompilerServices;", "using Microsoft.CSharp.RuntimeBinder;","using System.Diagnostics;" };
-            string TEMPLATE_A = string.Join("\r\n", usings)+"\r\nnamespace CSharp_Script_Namespace {\r\n class Program { \r\n";
+            string[] usings = { "using System;", "using System.Runtime.CompilerServices;", "using Microsoft.CSharp.RuntimeBinder;", "using System.Diagnostics;" };
+            string TEMPLATE_A = string.Join("\r\n", usings) + "\r\nnamespace CSharp_Script_Namespace {\r\n class Program { \r\n";
             string TEMPLATE_B = "}}";
-            string[] REFERENCES = { "System.Dynamic.Runtime.dll","Microsoft.CSharp.dll", "System.Core.dll" };
+            string[] REFERENCES = { "System.Dynamic.Runtime.dll", "Microsoft.CSharp.dll", "System.Core.dll" };
 
             File.WriteAllText("output.cs", TEMPLATE_A + string.Join("\r\n", generated.ToArray()) + TEMPLATE_B);
             CompilerResults result = Compile(TEMPLATE_A + string.Join("\r\n", generated.ToArray()) + TEMPLATE_B, AppDomain.CurrentDomain.BaseDirectory + "output.exe", REFERENCES);
@@ -27,7 +27,7 @@ namespace GNE_Compiler
             {
                 foreach (CompilerError CompErr in result.Errors)
                 {
-                    Console.WriteLine("C# Line number " + (CompErr.Line-2) +
+                    Console.WriteLine("C# Line number " + (CompErr.Line - 2) +
                         ", Error Number: " + CompErr.ErrorNumber +
                         ", '" + CompErr.ErrorText);
                     Console.WriteLine("그네어 Line number " + (CompErr.Line - 1));
@@ -158,7 +158,7 @@ namespace GNE_Compiler
                     }
                     else if (source[i].StartsWith("공천"))
                     {
-                        Variable(source[i],false);
+                        Variable(source[i], false);
                     }
                     else if (source[i].StartsWith("코드 텅텅 빌때까지 한번 해 보세요"))
                     {
@@ -216,7 +216,7 @@ namespace GNE_Compiler
                     {
                         Fucntion_Return(source[i]);
                     }
-                    else if(source[i].StartsWith("사회"))
+                    else if (source[i].StartsWith("사회"))
                     {
                         generated.Add("private static void Main(string[] args){");
                     }
@@ -229,7 +229,7 @@ namespace GNE_Compiler
 
             private void IF(string source)
             {
-                generated.Add("if("+Operator.Parse_IF(source.Remove(0, source.IndexOf('(')+1).Remove(source.LastIndexOf(')')- source.IndexOf('(')-1))+"){");
+                generated.Add("if(" + Operator.Parse_IF(source.Remove(0, source.IndexOf('(') + 1).Remove(source.LastIndexOf(')') - source.IndexOf('(') - 1)) + "){");
             }
 
             private void Loop_for(string source)
@@ -246,9 +246,9 @@ namespace GNE_Compiler
                 int i = 0;
                 foreach (Operator op in Operator.Parse(parts_raw[2]))
                 {
-                    if(i == 0)
+                    if (i == 0)
                     {
-                        Other += op.Contents+"=";
+                        Other += op.Contents + "=";
                         i++;
                         continue;
                     }
@@ -274,11 +274,11 @@ namespace GNE_Compiler
                 generated.Add("return " + VariableTable[source.Remove(0, 5)] + ";");
             }
 
-            public new string Variable(string source,bool Need_Converted)
+            public new string Variable(string source, bool Need_Converted)
             {
                 source = source.Trim();
                 string[] parse = source.Split(' ');
-                if(parse[4] == "전부" && parse[5] == "이렇게" && parse[6] == "해")
+                if (parse[4] == "전부" && parse[5] == "이렇게" && parse[6] == "해")
                 {
                     Console.WriteLine("익명성은 대한민국의 안보를 안전치 못하게 합니다.");
                     return "";
@@ -362,7 +362,7 @@ namespace GNE_Compiler
                 {
                     if (!current.Compiled)
                     {
-                        if(Infunction&&temp_generate.Last() != '(' && temp_generate.Last() != ',')
+                        if (Infunction && temp_generate.Last() != '(' && temp_generate.Last() != ',')
                         {
                             temp_generate += ",";
                         }
@@ -379,12 +379,15 @@ namespace GNE_Compiler
                                     Infunction = true;
                                 }
                                 break;
+
                             case Operator.Type.True:
                                 temp_generate += "true";
                                 break;
+
                             case Operator.Type.False:
                                 temp_generate += "false";
                                 break;
+
                             default:
                                 temp_generate += current.Contents;
                                 break;
@@ -427,12 +430,12 @@ namespace GNE_Compiler
                 return temp_generate;
             }
 
-            static int Get_Remain(Operator Parents)
+            private static int Get_Remain(Operator Parents)
             {
                 List<Operator.Slave> slaves = Parents.slave;
-                for(int i =0; i < slaves.Count; i++)
+                for (int i = 0; i < slaves.Count; i++)
                 {
-                    if(!slaves[i].Compiled)
+                    if (!slaves[i].Compiled)
                     {
                         return i;
                     }
@@ -476,7 +479,6 @@ namespace GNE_Compiler
                 int index = generated.Count - 1;
                 generated[index] = generated[index] + input;
             }
-
         }
 
         public class Operator
@@ -501,7 +503,7 @@ namespace GNE_Compiler
                 Contents = contents;
             }
 
-            public static List<Operator> Parse(string source) 
+            public static List<Operator> Parse(string source)
             {
                 bool Instring = false;
                 int depth = 0;
@@ -783,8 +785,7 @@ namespace GNE_Compiler
             {
                 string result = "";
                 List<Conditional> operators = Conditional.FindOperator(source);
-                bool Instring = false;
-                foreach(Conditional part in operators)
+                foreach (Conditional part in operators)
                 {
                     if (part.type == Conditional.ConditionalType.None)
                     {
@@ -798,6 +799,7 @@ namespace GNE_Compiler
 
                 return result;
             }
+
             public enum Type
             {
                 None,
@@ -817,7 +819,7 @@ namespace GNE_Compiler
             }
         }
 
-        class Conditional
+        private class Conditional
         {
             public readonly ConditionalType type;
             public readonly string Contents;
@@ -856,7 +858,7 @@ namespace GNE_Compiler
                     }
                     if (!Instring) //문자열 밖에있음
                     {
-                        switch(source[i])
+                        switch (source[i])
                         {
                             case '=':
                                 Rec = false;
@@ -883,7 +885,7 @@ namespace GNE_Compiler
                                 Operator += "|";
                                 continue;
                         }
-                        if(Operator != "")
+                        if (Operator != "")
                         {
                             Result.Add(new Conditional(ConditionalType.None, temp.Trim()));
                             switch (Operator)
@@ -891,24 +893,31 @@ namespace GNE_Compiler
                                 case "!=":
                                     Result.Add(new Conditional(ConditionalType.Not, "!="));
                                     break;
+
                                 case "==":
                                     Result.Add(new Conditional(ConditionalType.Equal, "=="));
                                     break;
+
                                 case ">":
                                     Result.Add(new Conditional(ConditionalType.Greater, ">"));
                                     break;
+
                                 case "<":
                                     Result.Add(new Conditional(ConditionalType.Less, "<"));
                                     break;
+
                                 case ">=":
                                     Result.Add(new Conditional(ConditionalType.GreaterEqual, ">"));
                                     break;
+
                                 case "<=":
                                     Result.Add(new Conditional(ConditionalType.LessEqual, "<"));
                                     break;
+
                                 case "&&":
                                     Result.Add(new Conditional(ConditionalType.LessEqual, "&&"));
                                     break;
+
                                 case "||":
                                     Result.Add(new Conditional(ConditionalType.LessEqual, "||"));
                                     break;
@@ -917,7 +926,7 @@ namespace GNE_Compiler
                             Operator = "";
                             Rec = true;
                         }
-                        if(i == source.Length - 1)
+                        if (i == source.Length - 1)
                         {
                             temp += source[i];
                             Result.Add(new Conditional(ConditionalType.None, temp.Trim()));
@@ -932,7 +941,6 @@ namespace GNE_Compiler
                 return Result;
             }
         }
-
 
         private class Variable
         {
