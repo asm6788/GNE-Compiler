@@ -62,8 +62,8 @@ namespace GNE_Compiler
             private List<Function> List_Function = new List<Function>();
             private List<string> Un_used = new List<string>();
             private Function current_func = null;
-            private Hashtable FunctionTable = new Hashtable();
-            private Hashtable VariableTable = new Hashtable();
+            private static Hashtable FunctionTable = new Hashtable();
+            private static Hashtable VariableTable = new Hashtable();
 
             public new void Function(string source, int location)
             {
@@ -158,7 +158,7 @@ namespace GNE_Compiler
                     }
                     else if (source[i].StartsWith("공천"))
                     {
-                        Variable(source[i]);
+                        Variable(source[i],false);
                     }
                     else if (source[i].StartsWith("코드 텅텅 빌때까지 한번 해 보세요"))
                     {
@@ -171,6 +171,18 @@ namespace GNE_Compiler
                     else if (source[i].StartsWith("메모리 텅텅 빌 때까지 한번 해 보세요 쓰레기들 다 어디 갔냐고"))
                     {
                         Req_GC();
+                    }
+                    else if (source[i].StartsWith("될때까지"))
+                    {
+                        Loop_while(source[i]);
+                    }
+                    else if (source[i].StartsWith("법률공포"))
+                    {
+                        Loop_for(source[i]);
+                    }
+                    else if (source[i].StartsWith("만약"))
+                    {
+                        IF(source[i]);
                     }
                     else if (source[i].Contains("이것이다"))
                     {
@@ -215,6 +227,42 @@ namespace GNE_Compiler
                 }
             }
 
+            private void IF(string source)
+            {
+                generated.Add("if("+Operator.Parse_IF(source.Remove(0, source.IndexOf('(')+1).Remove(source.LastIndexOf(')')- source.IndexOf('(')-1))+"){");
+            }
+
+            private void Loop_for(string source)
+            {
+                source = source.Remove(0, 5);
+                source = source.Remove(source.LastIndexOf(')'));
+                string[] parts_raw = source.Split(';');
+                string[] parts = new string[3];
+                parts[0] = "int " + Variable(parts_raw[0] + ";", true);
+                parts[1] = Operator.Parse_IF(parts_raw[1] + ";") + ";";
+                string[] Splited = parts_raw[2].Trim().Split(' ');
+                string Left = ParsedToCsharp(Operator.Parse(Splited[0]));
+                string Other = "";
+                int i = 0;
+                foreach (Operator op in Operator.Parse(parts_raw[2]))
+                {
+                    if(i == 0)
+                    {
+                        Other += op.Contents+"=";
+                        i++;
+                        continue;
+                    }
+                    Other += op.Contents;
+                }
+                parts[2] = Left + Other;
+                generated.Add("for(" + parts[0] + parts[1] + parts[2] + "){");
+            }
+
+            private void Loop_while(string source)
+            {
+                throw new NotImplementedException();
+            }
+
             private void BreackPoint()
             {
                 generated.Add("if(System.Diagnostics.Debugger.IsAttached)");
@@ -226,10 +274,16 @@ namespace GNE_Compiler
                 generated.Add("return " + VariableTable[source.Remove(0, 5)] + ";");
             }
 
-            public new void Variable(string source)
+            public new string Variable(string source,bool Need_Converted)
             {
+                source = source.Trim();
                 string[] parse = source.Split(' ');
-                string name = parse[1].Replace('-', '_');
+                if(parse[4] == "전부" && parse[5] == "이렇게" && parse[6] == "해")
+                {
+                    Console.WriteLine("익명성은 대한민국의 안보를 안전치 못하게 합니다.");
+                    return "";
+                }
+                string name = RandomString(); ;
                 int index = current_func.location;
                 parse[4] = parse[4].Remove(parse[4].Length - 1, 1);
                 if (VariableTable[parse[1]] == null)
@@ -237,20 +291,42 @@ namespace GNE_Compiler
                     VariableTable.Add(parse[1], name);
                 }
                 if (parse[4] == "창조")
-                { 
-                    generated.Insert(index, "static dynamic " + name + " = null;");
+                {
+                    if (!Need_Converted)
+                    {
+                        generated.Insert(index, "static dynamic " + name + " = null;");
+                    }
                     source = source.Remove(0, source.IndexOf("이것이다") + 7);
                     variables.Add(new Variable("var", name, parse[5].Remove(parse[5].Length - 1, 1).Trim()));
-                    generated.Add(name + " = new " + ParsedToCsharp(Operator.Parse(source)) + ";");
+                    if (!Need_Converted)
+                    {
+                        generated.Add(name + " = new " + ParsedToCsharp(Operator.Parse(source)) + ";");
+                    }
+                    else
+                    {
+                        return name + " = new " + ParsedToCsharp(Operator.Parse(source)) + ";";
+                    }
                 }
                 else
                 {
-                    generated.Insert(index, "static dynamic " + name + " = null;");
+                    if (!Need_Converted)
+                    {
+                        generated.Insert(index, "static dynamic " + name + " = null;");
+                    }
                     source = source.Remove(0, source.IndexOf("이것이다") + 5);
                     variables.Add(new Variable("var", name, parse[1]));
-                    generated.Add(name + " = " + ParsedToCsharp(Operator.Parse(source)) + ";");
+                    if (!Need_Converted)
+                    {
+                        generated.Add(name + " = " + ParsedToCsharp(Operator.Parse(source)) + ";");
+                    }
+                    else
+                    {
+                        return name + " =  " + ParsedToCsharp(Operator.Parse(source)) + ";";
+                    }
                 }
+                return "";
             }
+
             public void Exception_Try()
             {
                 bracket++;
@@ -272,7 +348,7 @@ namespace GNE_Compiler
                 Append_Gen(";");
             }
 
-            private string ParsedToCsharp(List<Operator> input)
+            public static string ParsedToCsharp(List<Operator> input)
             {
                 Operator current = input.First();
                 Operator parent = input.First();
@@ -351,7 +427,7 @@ namespace GNE_Compiler
                 return temp_generate;
             }
 
-            int Get_Remain(Operator Parents)
+            static int Get_Remain(Operator Parents)
             {
                 List<Operator.Slave> slaves = Parents.slave;
                 for(int i =0; i < slaves.Count; i++)
@@ -403,7 +479,7 @@ namespace GNE_Compiler
 
         }
 
-        private class Operator
+        public class Operator
         {
             public class Slave : Operator
             {
@@ -416,6 +492,8 @@ namespace GNE_Compiler
             public readonly string Contents;
             public bool Compiled = false;
             public List<Slave> slave = new List<Slave>(); //제일 먼저보이는 함수
+            private Type function;
+            private string temp;
 
             public Operator(Type type, string contents)
             {
@@ -423,7 +501,7 @@ namespace GNE_Compiler
                 Contents = contents;
             }
 
-            public static List<Operator> Parse(string source)
+            public static List<Operator> Parse(string source) 
             {
                 bool Instring = false;
                 int depth = 0;
@@ -701,7 +779,25 @@ namespace GNE_Compiler
                 return generators;
             }
 
+            public static string Parse_IF(string source)
+            {
+                string result = "";
+                List<Conditional> operators = Conditional.FindOperator(source);
+                bool Instring = false;
+                foreach(Conditional part in operators)
+                {
+                    if (part.type == Conditional.ConditionalType.None)
+                    {
+                        result += Parser.ParsedToCsharp(Parse(part.Contents));
+                    }
+                    else
+                    {
+                        result += part.Contents;
+                    }
+                }
 
+                return result;
+            }
             public enum Type
             {
                 None,
@@ -720,6 +816,123 @@ namespace GNE_Compiler
                 Paramater
             }
         }
+
+        class Conditional
+        {
+            public readonly ConditionalType type;
+            public readonly string Contents;
+
+            public Conditional(ConditionalType type, string contents)
+            {
+                this.type = type;
+                Contents = contents;
+            }
+
+            public enum ConditionalType
+            {
+                None,
+                And,
+                Not,
+                Equal,
+                Or,
+                Less,
+                Greater,
+                LessEqual,
+                GreaterEqual,
+            }
+
+            public static List<Conditional> FindOperator(string source)
+            {
+                List<Conditional> Result = new List<Conditional>();
+                bool Instring = false;
+                bool Rec = true;
+                string temp = "";
+                string Operator = "";
+                for (int i = 0; i != source.Length; i++)
+                {
+                    if (source[i] == '"')
+                    {
+                        Instring = !Instring;
+                    }
+                    if (!Instring) //문자열 밖에있음
+                    {
+                        switch(source[i])
+                        {
+                            case '=':
+                                Rec = false;
+                                Operator += "=";
+                                continue;
+                            case '!':
+                                Rec = false;
+                                Operator += "!";
+                                continue;
+                            case '>':
+                                Rec = false;
+                                Operator += ">";
+                                continue;
+                            case '<':
+                                Rec = false;
+                                Operator += "<";
+                                continue;
+                            case '&':
+                                Rec = false;
+                                Operator += "&";
+                                continue;
+                            case '|':
+                                Rec = false;
+                                Operator += "|";
+                                continue;
+                        }
+                        if(Operator != "")
+                        {
+                            Result.Add(new Conditional(ConditionalType.None, temp.Trim()));
+                            switch (Operator)
+                            {
+                                case "!=":
+                                    Result.Add(new Conditional(ConditionalType.Not, "!="));
+                                    break;
+                                case "==":
+                                    Result.Add(new Conditional(ConditionalType.Equal, "=="));
+                                    break;
+                                case ">":
+                                    Result.Add(new Conditional(ConditionalType.Greater, ">"));
+                                    break;
+                                case "<":
+                                    Result.Add(new Conditional(ConditionalType.Less, "<"));
+                                    break;
+                                case ">=":
+                                    Result.Add(new Conditional(ConditionalType.GreaterEqual, ">"));
+                                    break;
+                                case "<=":
+                                    Result.Add(new Conditional(ConditionalType.LessEqual, "<"));
+                                    break;
+                                case "&&":
+                                    Result.Add(new Conditional(ConditionalType.LessEqual, "&&"));
+                                    break;
+                                case "||":
+                                    Result.Add(new Conditional(ConditionalType.LessEqual, "||"));
+                                    break;
+                            }
+                            temp = "";
+                            Operator = "";
+                            Rec = true;
+                        }
+                        if(i == source.Length - 1)
+                        {
+                            temp += source[i];
+                            Result.Add(new Conditional(ConditionalType.None, temp.Trim()));
+                        }
+                        if (Rec)
+                        {
+                            temp += source[i];
+                        }
+                    }
+                }
+
+                return Result;
+            }
+        }
+
 
         private class Variable
         {
