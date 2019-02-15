@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace GNE_Compiler
 {
@@ -78,21 +79,21 @@ namespace GNE_Compiler
                     {
                         Console.WriteLine("문법 오류: 희망찬 모두의 대한민국의 청년들을 위한 한국형 한국의 이름 명명방법 규칙이 아닙니다.");
                     }
-                    switch (type.Remove(type.Length - 2, 2))
+                    switch (type)
                     {
-                        case "공평":
+                        case "공평하게":
                             type = "void";
                             break;
 
-                        case "적절한숫자":
+                        case "적절한숫자하게":
                             type = "int";
                             break;
 
-                        case "적절한소수":
+                        case "적절한소수하게":
                             type = "double";
                             break;
 
-                        case "한국어":
+                        case "한국어로":
                             type = "string";
                             break;
 
@@ -220,6 +221,10 @@ namespace GNE_Compiler
                     {
                         generated.Add("private static void Main(string[] args){");
                     }
+                    else if (Regex.IsMatch(source[i], "((?:[ㄱ-힗]+))(\\s+)((?:[ㄱ-힗]+))(\\s+)(\\{)"))
+                    {
+                        DeclareClass(source[i]);
+                    }
                     else
                     {
                         Console.WriteLine("알수없는 토큰: " + source[i]);
@@ -230,6 +235,11 @@ namespace GNE_Compiler
             private void IF(string source)
             {
                 generated.Add("if(" + Operator.Parse_IF(source.Remove(0, source.IndexOf('(') + 1).Remove(source.LastIndexOf(')') - source.IndexOf('(') - 1)) + "){");
+            }
+
+            private void DeclareClass(string source)
+            {
+                generated.Add("public class "  + source.Remove(source.Length-2).Replace(' ','_')+" {");
             }
 
             private void Loop_for(string source)
@@ -387,7 +397,9 @@ namespace GNE_Compiler
                             case Operator.Type.False:
                                 temp_generate += "false";
                                 break;
-
+                            case Operator.Type.Class:
+                                temp_generate += current.Contents+".";
+                                break;
                             default:
                                 temp_generate += current.Contents;
                                 break;
@@ -400,7 +412,7 @@ namespace GNE_Compiler
                     }
                     else
                     {
-                        current = parent.slave.ElementAt(Get_Remain(current));
+                        current = current.slave.ElementAt(Get_Remain(current));
                         continue;
                     }
                     if (index != current.slave.Count)
@@ -510,6 +522,7 @@ namespace GNE_Compiler
                 bool startrec = true;
                 int Funtionstart = FindfunctionStart(source, 0);
                 int FunctionEnd = FindfunctionEnd(source, 0);
+                int ClassDot = FindClassDot(source, 0);
                 string temp = "";
                 List<Operator> operators = new List<Operator>();
                 for (int i = 0; i != source.Length; i++)
@@ -550,6 +563,21 @@ namespace GNE_Compiler
                         temp = "";
                         depth--;
                         FunctionEnd = FindfunctionEnd(source, FunctionEnd);
+                        continue;
+                    }
+                    if (i == ClassDot)
+                    {
+                        temp = temp.Trim().Replace(' ', '_');
+                        if (depth == 0)
+                        {
+                            operators.Add(new Operator(Type.Class, temp));
+                        }
+                        else
+                        {
+                            AddParseList(ref temp, depth, ref operators, ParserParamater(temp), Type.Class);
+                        }
+                        temp = "";
+                        ClassDot = FindClassDot(source, ClassDot);
                         continue;
                     }
                     if (source[i] == '"')
@@ -641,6 +669,30 @@ namespace GNE_Compiler
                         if (i > ignore)
                         {
                             if (source[i + 1] != ')')
+                            {
+                                return i;
+                            }
+                        }
+                    }
+                }
+                return -1;
+            }
+
+            private static int FindClassDot(string source, int ignore)
+            {
+                bool Instring = false;
+                for (int i = 0; i != source.Length; i++)
+                {
+                    if (source[i] == '"')
+                    {
+                        Instring = !Instring;
+                        continue;
+                    }
+                    if (!Instring && source[i] == '.')
+                    {
+                        if (i > ignore)
+                        {
+                            if (!Regex.IsMatch(source[i - 1].ToString(), @"^\d+$"))
                             {
                                 return i;
                             }
@@ -815,7 +867,8 @@ namespace GNE_Compiler
                 Function,
                 True,
                 False,
-                Paramater
+                Paramater,
+                Class,
             }
         }
 
